@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:oracle-ebs122="http://www.mulesoft.org/schema/mule/oracle-ebs122"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:gea-orderss-api="http://www.mulesoft.org/schema/mule/gea-orderss-api" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/gea-orderss-api http://www.mulesoft.org/schema/mule/gea-orderss-api/current/mule-gea-orderss-api.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/oracle-ebs122 http://www.mulesoft.org/schema/mule/oracle-ebs122/current/mule-oracle-ebs122.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<salesforce:sfdc-config name="Salesforce_Config_GEA" doc:name="Salesforce Config" doc:id="6023fa64-ca96-4631-8b0b-921c6a348fca" >
+		<salesforce:basic-connection username="${sfdc.userid}" password="${sfdc.password}" securityToken="${sfdc.token}" />
+	</salesforce:sfdc-config>
+	<configuration-properties doc:name="Configuration properties" doc:id="41bf9ed4-dbcb-4cc6-8fe7-2618924904a6" file="configuration/config.yaml" />
+	<gea-orderss-api:config name="GEA_Orders_sAPI_Config_gea" doc:name="GEA Orders sAPI Config" doc:id="a1ad566f-abb1-446b-8252-f75482672c13" property_host="${gea.host}" property_port="${gea.port}" property_protocol="${gea.protocol}" property_basePath="${gea.basePath}" property_responseTimeout="${gea.timeout}" />
+	<oracle-ebs122:config name="Oracle_EBS_12_2_Config" doc:name="Oracle EBS 12.2 Config" doc:id="78df349d-e9d6-4759-b05b-2d6fb25f9778" >
+		<oracle-ebs122:plsql-connection host="${ebs.host}" port="${ebs.port}" username="${ebs.username}" password="${ebs.password}" restServiceLocatorAlias="${ebs.restServiceLocatorAlias}" fndWebSecAlias="${ebs.fndWebSecAlias}" responsibility="${ebs.responsibility}" respApplication="${ebs.respApplication}" securityGroup="${ebs.securityGroup}" orgId="${ebs.orgId}" />
+	</oracle-ebs122:config>
+	<db:config name="Database_Config_Xwlk" doc:name="Database Config" doc:id="f2cbfb36-b82e-4a5d-a10b-d93b70d0b92b" >
+		<db:my-sql-connection host="${dbXwlk.host}" port="${dbXwlk.port}" user="${dbXwlk.user}" password="${dbXwlk.password}" database="${dbXwlk.database}" />
+	</db:config>
+</mule>

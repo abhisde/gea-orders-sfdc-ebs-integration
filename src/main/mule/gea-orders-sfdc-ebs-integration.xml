@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:gea-orderss-api="http://www.mulesoft.org/schema/mule/gea-orderss-api" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/gea-orderss-api http://www.mulesoft.org/schema/mule/gea-orderss-api/current/mule-gea-orderss-api.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="gea-orders-sfdc-ebs-syncFlow" doc:id="2cbbf250-4398-4cc8-8c20-096b66cb3db5" >
+		<salesforce:modified-object-listener doc:name="On Modified Object" doc:id="436b060a-4f87-439a-a014-94d8d2342e1a" config-ref="Salesforce_Config_GEA" objectType="Order">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</salesforce:modified-object-listener>
+		<choice doc:name="Choice" doc:id="95377415-70a0-4c3e-9988-31387795dbce" >
+			<when expression="#[payload.ERP_Reference_ID__c == null]">
+				<scatter-gather doc:name="Scatter-Gather" doc:id="bf697e9e-6022-4589-b5e0-5059768a344f" >
+					<route >
+						<db:select doc:name="Select Crosswalk data" doc:id="49039008-6106-42e7-97b7-649d7837a07c" config-ref="Database_Config_Xwlk">
+					<db:sql><![CDATA[select * from ebs_sfdc_xwalk]]></db:sql>
+				</db:select>
+						<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="DB Variable" doc:id="72daa764-5171-4948-b324-0f981428a878" variableName="DB" />
+					</route>
+					<route >
+						<salesforce:query doc:name="Fetch orderItem data" doc:id="caf7cdee-1b28-4110-a904-3ec5478629e4" config-ref="Salesforce_Config_GEA">
+			<salesforce:salesforce-query><![CDATA[SELECT Product2.Name, UnitPrice, Quantity, ListPrice, Type, TypeCode, TotalPrice FROM OrderItem WHERE OrderId = ':id']]></salesforce:salesforce-query>
+			<salesforce:parameters><![CDATA[#[output application/java
+---
+{
+	'id' : payload.Id
+}]]]></salesforce:parameters>
+		</salesforce:query>
+						<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;/*test: payload map (item, index) -&gt; {&#10;	orderItems: item&#10;}*/&#10;payload map (item, index) -&gt; {&#10;    UnitPrice: item.UnitPrice,&#10;    Type: item.Type,&#10;    TypeCode: item.TypeCode,&#10;    TotalPrice: item.TotalPrice,&#10;    Quantity: item.Quantity,&#10;    inventoryItemId: item.Product2.Name,&#10;    "type": item."type",&#10;    ListPrice: item.ListPrice&#10;}]' doc:name="OrderItems Variable" doc:id="24d49cee-ffce-4a5d-85f9-f2559137ca6d" variableName="orderItem" />
+					</route>
+					<route >
+						<set-variable value="#[payload]" doc:name="Order Variable" doc:id="298f68aa-691e-4a51-8689-5a030b6ae3d3" variableName="order" />
+						<logger level="INFO" doc:name="Logger" doc:id="22bba8b4-c7f3-4ace-bdc4-5776c87182e1" message="#[%dw 2.0&#10;output application/json&#10;var orgId = 204&#10;---&#10;payload]"/>
+					</route>
+				</scatter-gather>
+				<ee:transform doc:name="Transform Message" doc:id="2d1ad796-3825-4c95-ad07-d72cdda30bfa">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+var orgId = 204
+---
+{
+	booked: "N",
+	orderTypeId: 1430,
+	orgId: orgId,
+	paymentTermId: 4,
+	priceListId: 1000,
+	soldToOrgId: 1001,
+	transactionalCurrCode: "USD",
+	customerPO: vars.order.PoNumber default "12345",
+	description: vars.order.Description,
+	orderItems: vars.orderItem map (value, index) -> 
+{
+    "inventoryItemId": ((vars.DB filter $.PRODUCT_ID == value.inventoryItemId) filter $.PAYMENT_TERM_ID == vars.order.SBQQ__PaymentTerm__c).INVENTORY_ITEM_ID reduce $$ default 149,
+    "lineTypeId": 1427,
+    "orderedQuantity": value.Quantity as Number default 0,
+    "priceListId": ((vars.DB filter $.PRODUCT_ID == value.inventoryItemId) filter $.PAYMENT_TERM_ID == vars.order.SBQQ__PaymentTerm__c).PRICE_LIST_ID reduce $$ default 1000,
+    "paymentTermId": ((vars.DB filter $.PRODUCT_ID == value.inventoryItemId) filter $.PAYMENT_TERM_ID == vars.order.SBQQ__PaymentTerm__c).TERM_ID reduce $$ default 1226,
+    "unitListPrice": value.UnitPrice as Number default 0,
+    "unitSellingPrice": value.ListPrice as Number default 0,
+    "shipFromOrgID": orgId,
+}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<gea-orderss-api:create-order doc:name="Create order" doc:id="83114557-703c-479c-a321-50f38659953a" config-ref="GEA_Orders_sAPI_Config_gea">
+			<gea-orderss-api:create-order-request-data><![CDATA[#[output application/json
+---
+{
+	paymentTermId: payload.paymentTermId,
+	booked: payload.booked,
+	transactionalCurrCode: payload.transactionalCurrCode,
+	orderTypeId: payload.orderTypeId,
+	priceListId: payload.priceListId,
+	soldToOrgId: payload.soldToOrgId,
+	customerPO: payload.customerPO,
+	orderItems: payload.orderItems map ( orderItem , indexOfOrderItem ) -> {
+		inventoryItemId: orderItem.inventoryItemId,
+		lineTypeId: orderItem.lineTypeId,
+		paymentTermId: orderItem.paymentTermId,
+		unitSellingPrice: orderItem.unitSellingPrice,
+		orderedQuantity: orderItem.orderedQuantity,
+		unitListPrice: orderItem.unitListPrice,
+		priceListId: orderItem.priceListId,
+		shipFromOrgID: orderItem.shipFromOrgID
+	},
+	orgId: payload.orgId
+}]]]></gea-orderss-api:create-order-request-data>
+		</gea-orderss-api:create-order>
+				<ee:transform doc:name="Transform Message" doc:id="7654691c-ab6a-4258-b734-56603dd2cddc">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+[{
+	Id: vars.order.Id,
+	Description: "Order Reference in EBS : " ++ payload.Order_Number ++ " - " ++ payload.orderStatus as String default " ",
+	ERP_Reference_ID__c: payload.Order_Number
+}]]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<salesforce:update type="Order" doc:name="Update Order in SFDC" doc:id="e0e4ff53-486d-4061-84d5-0276d03a6799" config-ref="Salesforce_Config_GEA" />
+				<logger level="INFO" doc:name="Logger" doc:id="f9b35957-495d-4e10-81fe-2d2436fa90f8" message='#["Order created in EBS"]' />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="494a6915-9a45-4e31-a4eb-71ed0d88ce4e" message='#["Order is already present in EBS"]'/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

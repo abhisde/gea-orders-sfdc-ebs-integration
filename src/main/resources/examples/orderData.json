@@ -1,0 +1,22 @@
+{
+  "booked": "N",
+  "orderTypeId": 1430,
+  "orgId": 204,
+  "paymentTermId": 4,
+  "priceListId": 1000,
+  "soldToOrgId": 1002,
+  "transactionalCurrCode": "USD",
+  "customerPO": "12345",
+  "orderItems": [
+    {
+      "inventoryItemId": 149,
+      "lineTypeId": 1427,
+      "orderedQuantity": 1,
+      "paymentTermId": 4,
+      "priceListId": 1000,
+      "unitListPrice": 12.55,
+      "unitSellingPrice": 12.55,
+      "shipFromOrgID": 204
+    }
+  ]
+}
